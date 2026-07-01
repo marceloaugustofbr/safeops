@@ -304,10 +304,10 @@ export default function OperationAdminPage() {
           Gestão
         </Link>
         <h1 className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
-          Operações por Cidade
+          Operações Mercado Livre
         </h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Gerencie quais operações estão disponíveis em cada cidade
+          Vincule os tipos de operação disponíveis para cada cidade
         </p>
       </div>
 

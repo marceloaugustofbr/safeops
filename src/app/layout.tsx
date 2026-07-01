@@ -2,6 +2,7 @@ import "~/styles/globals.css";
 
 import { type Metadata } from "next";
 import { Geist } from "next/font/google";
+import { Toaster } from "sonner";
 
 import { TRPCReactProvider } from "~/trpc/react";
 
@@ -36,6 +37,14 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased">
         <TRPCReactProvider>{children}</TRPCReactProvider>
+        <Toaster
+          position="bottom-right"
+          toastOptions={{
+            className: "!bg-white !border !border-gray-300 !text-gray-900 !text-sm !shadow-lg dark:!bg-gray-800 dark:!border-gray-700 dark:!text-gray-100",
+          }}
+          closeButton
+          duration={3000}
+        />
       </body>
     </html>
   );

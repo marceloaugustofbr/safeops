@@ -20,6 +20,19 @@ export const operationRouter = createTRPCRouter({
       return ctx.db.operation.create({ data: input });
     }),
 
+  createMany: adminProcedure
+    .input(z.object({ names: z.array(z.string().min(1)), locationId: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db.operation.createMany({
+        data: input.names.map((name) => ({
+          name,
+          locationId: input.locationId,
+        })),
+        skipDuplicates: true,
+      });
+      return { count: input.names.length };
+    }),
+
   update: adminProcedure
     .input(z.object({ id: z.string(), data: operationSchema }))
     .mutation(async ({ ctx, input }) => {

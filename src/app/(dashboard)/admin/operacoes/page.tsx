@@ -85,13 +85,13 @@ function AddOperationDialog({
   locationLabel: string;
   onClose: () => void;
 }) {
-  const [opName, setOpName] = useState("");
-  const [isCustom, setIsCustom] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [customName, setCustomName] = useState("");
   const { data: operations } = api.operation.list.useQuery();
   const utils = api.useUtils();
-  const create = api.operation.create.useMutation({
-    onSuccess: () => {
-      toast.success("Operação adicionada");
+  const createMany = api.operation.createMany.useMutation({
+    onSuccess: (result) => {
+      toast.success(`${result.count} operação(ões) adicionada(s)`);
       void utils.operation.list.invalidate();
       onClose();
     },
@@ -107,11 +107,23 @@ function AddOperationDialog({
     (t) => !existingNames.includes(t),
   );
 
+  const toggle = (type: string) =>
+    setSelected((prev) =>
+      prev.includes(type)
+        ? prev.filter((t) => t !== type)
+        : [...prev, type],
+    );
+
+  const allNames = [
+    ...selected,
+    ...(customName.trim() ? [customName.trim()] : []),
+  ];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="mx-4 w-full max-w-md rounded-xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-700 dark:bg-gray-800">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+      <div className="mx-4 w-full max-w-sm rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800">
+        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-white">
             Adicionar Operação
           </h3>
           <button
@@ -121,77 +133,84 @@ function AddOperationDialog({
             <X className="h-5 w-5" />
           </button>
         </div>
-        <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
-          Cidade: <span className="font-medium text-gray-700 dark:text-gray-300">{locationLabel}</span>
-        </p>
 
-        {!isCustom ? (
-          <div className="flex flex-col gap-3">
-            <select
-              className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 transition-colors focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600"
-              value={opName}
-              onChange={(e) => {
-                if (e.target.value === "__custom__") {
-                  setIsCustom(true);
-                  setOpName("");
-                } else {
-                  setOpName(e.target.value);
-                }
-              }}
+        <div className="space-y-5 p-5">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              Cidade
+            </p>
+            <p className="mt-0.5 text-sm font-medium text-gray-900 dark:text-white">
+              {locationLabel}
+            </p>
+          </div>
+
+          <div>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              Operações disponíveis
+            </p>
+            {availableTypes.length === 0 ? (
+              <p className="text-sm text-gray-400">Todas as operações já foram adicionadas</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {availableTypes.map((type) => {
+                  const isSelected = selected.includes(type);
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => toggle(type)}
+                      className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-all ${
+                        isSelected
+                          ? "border-blue-500 bg-blue-50 text-blue-700 shadow-sm dark:border-blue-400 dark:bg-blue-950 dark:text-blue-300"
+                          : "border-gray-300 bg-white text-gray-600 hover:border-gray-400 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:border-gray-500"
+                      }`}
+                    >
+                      {type}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder="Nome personalizado"
+                value={customName}
+                onChange={(e) => setCustomName(e.target.value)}
+                className="flex-1"
+              />
+              {customName.trim() && (
+                <button
+                  type="button"
+                  onClick={() => setCustomName("")}
+                  className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between border-t border-gray-100 px-5 py-4 dark:border-gray-700">
+          <p className="text-xs text-gray-400">
+            {allNames.length} operação(ões) selecionada(s)
+          </p>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => createMany.mutate({ names: allNames, locationId })}
+              disabled={allNames.length === 0 || createMany.isPending}
+              loading={createMany.isPending}
             >
-              <option value="">Selecione...</option>
-              {availableTypes.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-              <option value="__custom__">Outro...</option>
-            </select>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={onClose}>
-                Cancelar
-              </Button>
-              <Button
-                onClick={() =>
-                  create.mutate({ name: opName, locationId })
-                }
-                disabled={!opName || create.isPending}
-                loading={create.isPending}
-              >
-                Adicionar
-              </Button>
-            </div>
+              <Plus className="h-4 w-4" /> Adicionar
+            </Button>
           </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            <Input
-              placeholder="Digite o nome da operação"
-              value={opName}
-              onChange={(e) => setOpName(e.target.value)}
-              autoFocus
-            />
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsCustom(false);
-                  setOpName("");
-                }}
-              >
-                Voltar
-              </Button>
-              <Button
-                onClick={() =>
-                  create.mutate({ name: opName, locationId })
-                }
-                disabled={!opName || create.isPending}
-                loading={create.isPending}
-              >
-                Adicionar
-              </Button>
-            </div>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );

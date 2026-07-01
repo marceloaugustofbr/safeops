@@ -402,7 +402,7 @@ export default function OperationAdminPage() {
           const cityOps = opsByLocation.get(loc.id) ?? [];
           const label = `${loc.name} - ${loc.city}`;
           return (
-            <Card key={loc.id} className="overflow-hidden">
+            <Card key={loc.id}>
               <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-6 py-4 dark:border-gray-700 dark:bg-gray-800/50">
                 <CardTitle className="text-base font-semibold">
                   {label}

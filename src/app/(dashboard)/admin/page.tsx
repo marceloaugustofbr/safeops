@@ -1,12 +1,6 @@
 import Link from "next/link";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card";
-import { Briefcase, Users } from "lucide-react";
+import { ArrowLeft, Briefcase, Users } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardDescription } from "~/components/ui/card";
 
 const adminModules = [
   {
@@ -14,44 +8,60 @@ const adminModules = [
     title: "Operações",
     description: "Gerenciar operações vinculadas a cidades",
     icon: Briefcase,
+    gradient: "from-blue-500 to-blue-600",
   },
   {
     href: "/admin/usuarios",
     title: "Usuários",
     description: "Gerenciar usuários do sistema",
     icon: Users,
+    gradient: "from-emerald-500 to-emerald-600",
   },
 ];
 
 export default function AdminPage() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Administração
-        </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
+        <Link
+          href="/"
+          className="mb-4 inline-flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Dashboard
+        </Link>
+        <h1 className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
+          Gestão
+        </h1>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           Gerencie usuários e operações do sistema
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-5 sm:grid-cols-2">
         {adminModules.map((module) => {
           const Icon = module.icon;
           return (
-            <Link key={module.href} href={module.href}>
-              <Card className="h-full transition-colors hover:border-blue-500 hover:shadow-md">
+            <Link key={module.href} href={module.href} className="group">
+              <Card className="relative overflow-hidden transition-all hover:shadow-lg hover:-translate-y-0.5">
+                <div
+                  className={`absolute inset-0 bg-gradient-to-br ${module.gradient} opacity-0 transition-opacity group-hover:opacity-5`}
+                />
                 <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <div className="rounded-lg bg-blue-100 p-2 dark:bg-blue-900/50">
-                      <Icon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  <div className="flex items-center gap-4">
+                    <div
+                      className={`flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${module.gradient} shadow-sm`}
+                    >
+                      <Icon className="h-6 w-6 text-white" />
                     </div>
-                    <CardTitle className="text-base">{module.title}</CardTitle>
+                    <div>
+                      <CardTitle className="text-lg">{module.title}</CardTitle>
+                      <CardDescription className="mt-0.5">
+                        {module.description}
+                      </CardDescription>
+                    </div>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <CardDescription>{module.description}</CardDescription>
-                </CardContent>
               </Card>
             </Link>
           );

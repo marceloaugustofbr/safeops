@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import {
   Plus,
   Trash2,
   MoreVertical,
   Building2,
   X,
+  ArrowLeft,
 } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -294,9 +296,16 @@ export default function OperationAdminPage() {
       )}
 
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+        <Link
+          href="/admin"
+          className="mb-4 inline-flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Gestão
+        </Link>
+        <h1 className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
           Operações por Cidade
-        </h2>
+        </h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           Gerencie quais operações estão disponíveis em cada cidade
         </p>

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { Plus, Pencil, Trash2, ArrowLeft } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Select } from "~/components/ui/select";
@@ -149,8 +150,25 @@ export default function UserAdminPage() {
   const utils = api.useUtils();
 
   return (
-    <Card>
-      <CardHeader>
+    <div className="space-y-6">
+      <div>
+        <Link
+          href="/admin"
+          className="mb-4 inline-flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Gestão
+        </Link>
+        <h1 className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
+          Usuários
+        </h1>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          Gerencie os usuários do sistema
+        </p>
+      </div>
+
+      <Card>
+        <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>Usuários</CardTitle>
           <Button
@@ -245,7 +263,8 @@ export default function UserAdminPage() {
             </TableBody>
           </Table>
         )}
-      </CardContent>
-    </Card>
+          </CardContent>
+        </Card>
+    </div>
   );
 }

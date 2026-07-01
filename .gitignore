@@ -11,7 +11,14 @@
 # database
 /prisma/db.sqlite
 /prisma/db.sqlite-journal
+/prisma/dev.db
 db.sqlite
+
+# prisma generated client (output under node_modules as of v6)
+generated/
+
+# scripts
+scripts/
 
 # next.js
 /.next/

@@ -1,76 +1,60 @@
-// Prisma schema for Better Auth
-// learn more: https://better-auth.com/docs/concepts/database
-
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
 }
-
-// NOTE: When using mysql or sqlserver, uncomment the //@db.Text annotations in model Account below
-// Further reading:
-// https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference#string
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-model Post {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  createdBy   User   @relation(fields: [createdById], references: [id])
-  createdById String
-
-  @@index([name])
-}
-
 model User {
-  id            String    @id
-  name          String //@db.Text
-  email         String
-  emailVerified Boolean   @default(false)
-  image         String? //@db.Text
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @default(now()) @updatedAt
+  id            String   @id @default(uuid())
+  name          String
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  role          String   @default("USER")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
   sessions      Session[]
   accounts      Account[]
-  posts         Post[]
 
-  @@unique([email])
+  locationId String?
+  location   Location? @relation("UserLocation", fields: [locationId], references: [id])
+
+  collaborators Collaborator[] @relation("CreatedByUser")
+  deliveries    Delivery[]
+
   @@map("user")
 }
 
 model Session {
   id        String   @id
   expiresAt DateTime
-  token     String
+  token     String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  ipAddress String? //@db.Text
-  userAgent String? //@db.Text
+  ipAddress String?
+  userAgent String?
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([token])
   @@map("session")
 }
 
 model Account {
   id                    String    @id
-  accountId             String //@db.Text
-  providerId            String //@db.Text
+  accountId             String
+  providerId            String
   userId                String
   user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  accessToken           String? //@db.Text
-  refreshToken          String? //@db.Text
-  idToken               String? //@db.Text
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
   accessTokenExpiresAt  DateTime?
   refreshTokenExpiresAt DateTime?
-  scope                 String? //@db.Text
-  password              String? //@db.Text
+  scope                 String?
+  password              String?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
@@ -79,11 +63,170 @@ model Account {
 
 model Verification {
   id         String   @id
-  identifier String //@db.Text
-  value      String //@db.Text
+  identifier String
+  value      String
   expiresAt  DateTime
   createdAt  DateTime @default(now())
-  updatedAt  DateTime @default(now()) @updatedAt
+  updatedAt  DateTime @updatedAt
 
   @@map("verification")
+}
+
+model Location {
+  id        String   @id @default(uuid())
+  name      String
+  city      String
+  unit      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users         User[]         @relation("UserLocation")
+  collaborators Collaborator[]
+  deliveries    Delivery[]
+  operations    Operation[]
+
+  @@unique([name, city, unit])
+  @@map("location")
+}
+
+model Operation {
+  id        String   @id @default(uuid())
+  name      String
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  collaborators Collaborator[]
+
+  @@unique([name, locationId])
+  @@map("operation")
+}
+
+model Collaborator {
+  id            String   @id @default(uuid())
+  registration  String   @unique
+  name          String
+  manager       String
+  admissionDate DateTime
+  status        String   @default("ACTIVE")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  operationId String
+  operation   Operation @relation(fields: [operationId], references: [id])
+
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id])
+
+  createdById String
+  createdBy   User     @relation("CreatedByUser", fields: [createdById], references: [id])
+
+  deliveries Delivery[]
+
+  @@index([registration])
+  @@index([name])
+  @@index([locationId])
+  @@map("collaborator")
+}
+
+model Epi {
+  id           String    @id @default(uuid())
+  name         String
+  ca           String?
+  manufacturer String?
+  size         String?
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  @@index([name])
+  @@map("epi")
+}
+
+model Uniform {
+  id        String    @id @default(uuid())
+  name      String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([name])
+  @@map("uniform")
+}
+
+model Reason {
+  id        String   @id @default(uuid())
+  name      String
+  type      String   @default("DELIVERY")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  deliveryItems DeliveryItem[]
+
+  @@unique([name, type])
+  @@map("reason")
+}
+
+model Delivery {
+  id        String   @id @default(uuid())
+  date      DateTime
+  signature String?
+
+  collaboratorId String
+  collaborator   Collaborator @relation(fields: [collaboratorId], references: [id])
+
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id])
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  items       DeliveryItem[]
+  attachments Attachment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([collaboratorId])
+  @@index([locationId])
+  @@index([date])
+  @@map("delivery")
+}
+
+model DeliveryItem {
+  id        String @id @default(uuid())
+  itemType  String
+  itemName  String
+  size      String?
+  quantity  Int    @default(1)
+  notes     String?
+
+  reasonId String
+  reason   Reason   @relation(fields: [reasonId], references: [id])
+
+  deliveryId String
+  delivery   Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([deliveryId])
+  @@map("delivery_item")
+}
+
+model Attachment {
+  id            String   @id @default(uuid())
+  cloudinaryUrl String
+  publicId      String
+  fileName      String
+  type          String
+
+  deliveryId String
+  delivery   Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([deliveryId])
+  @@map("attachment")
 }

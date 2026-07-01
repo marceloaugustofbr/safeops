@@ -8,7 +8,11 @@ import { operationSchema } from "~/lib/validations/schemas";
 
 export const operationRouter = createTRPCRouter({
   list: protectedProcedure.query(async ({ ctx }) => {
+    const isAdmin = ctx.session.user.role === "ADMIN";
+    const locationId = ctx.session.user.locationId;
+
     return ctx.db.operation.findMany({
+      where: isAdmin ? undefined : { locationId: locationId ?? undefined },
       include: { location: true },
       orderBy: [{ name: "asc" }],
     });

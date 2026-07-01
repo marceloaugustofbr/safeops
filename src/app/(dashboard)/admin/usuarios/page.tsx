@@ -22,16 +22,21 @@ import { userSchema, type UserInput } from "~/lib/validations/schemas";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { authClient } from "~/server/better-auth/client";
 
 function UserForm({
   initialData,
   onSuccess,
   onCancel,
+  currentUserId,
 }: {
   initialData?: UserInput & { id?: string };
   onSuccess: () => void;
   onCancel: () => void;
+  currentUserId?: string;
 }) {
+  const isOwnProfile = !!initialData?.id && initialData.id === currentUserId;
+
   const {
     register,
     handleSubmit,
@@ -90,6 +95,7 @@ function UserForm({
         type="email"
         {...register("email")}
         error={errors.email?.message}
+        disabled={isOwnProfile}
       />
       {!initialData?.id && (
         <Input
@@ -109,6 +115,7 @@ function UserForm({
         ]}
         {...register("role")}
         onChange={(e) => setValue("role", e.target.value as "ADMIN" | "USER")}
+        disabled={isOwnProfile}
       />
       <Select
         id="locationId"
@@ -122,7 +129,13 @@ function UserForm({
         ]}
         {...register("locationId")}
         onChange={(e) => setValue("locationId", e.target.value)}
+        disabled={isOwnProfile}
       />
+      {isOwnProfile && (
+        <p className="text-xs text-gray-400">
+          Email, perfil e localização não podem ser alterados pelo próprio administrador.
+        </p>
+      )}
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancelar
@@ -140,6 +153,8 @@ export default function UserAdminPage() {
   const [editItem, setEditItem] = useState<(UserInput & { id: string }) | null>(
     null,
   );
+  const { data: sessionData } = authClient.useSession();
+  const currentUserId = sessionData?.user?.id;
   const { data: users, isLoading } = api.user.list.useQuery();
   const del = api.user.delete.useMutation({
     onSuccess: () => {
@@ -186,6 +201,7 @@ export default function UserAdminPage() {
         {showForm ? (
           <UserForm
             initialData={editItem ?? undefined}
+            currentUserId={currentUserId}
             onSuccess={() => {
               setShowForm(false);
               setEditItem(null);
@@ -209,7 +225,9 @@ export default function UserAdminPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users?.map((u) => (
+              {users?.map((u) => {
+                const isOwnProfile = u.id === currentUserId;
+                return (
                 <TableRow key={u.id}>
                   <TableCell className="font-medium">{u.name}</TableCell>
                   <TableCell>{u.email}</TableCell>
@@ -242,6 +260,7 @@ export default function UserAdminPage() {
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
+                      {!isOwnProfile && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -249,10 +268,12 @@ export default function UserAdminPage() {
                       >
                         <Trash2 className="h-4 w-4 text-red-500" />
                       </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
               {users?.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center text-gray-500">

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Briefcase, Users } from "lucide-react";
+import { Briefcase, Users } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription } from "~/components/ui/card";
 
 const adminModules = [
@@ -23,14 +23,7 @@ export default function AdminPage() {
   return (
     <div className="space-y-8">
       <div>
-        <Link
-          href="/"
-          className="mb-4 inline-flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Dashboard
-        </Link>
-        <h1 className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
           Gestão
         </h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">

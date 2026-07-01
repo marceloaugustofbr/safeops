@@ -198,8 +198,7 @@ function AddOperationDialog({
 export default function OperationAdminPage() {
   const [showNewCity, setShowNewCity] = useState(false);
   const [newCityName, setNewCityName] = useState("");
-  const [newCityCity, setNewCityCity] = useState("");
-  const [newCityUnit, setNewCityUnit] = useState("");
+  const [newCityOps, setNewCityOps] = useState<string[]>([]);
   const [addOpTarget, setAddOpTarget] = useState<{
     id: string;
     label: string;
@@ -228,8 +227,7 @@ export default function OperationAdminPage() {
       void utils.location.list.invalidate();
       setShowNewCity(false);
       setNewCityName("");
-      setNewCityCity("");
-      setNewCityUnit("");
+      setNewCityOps([]);
     },
     onError: (e) => toast.error(e.message),
   });
@@ -320,42 +318,63 @@ export default function OperationAdminPage() {
             </h4>
             <div className="flex flex-wrap items-end gap-3">
               <Input
-                label="Nome (ex: Mercado Livre)"
+                label="Cidade"
+                placeholder="ex: Avaré"
                 value={newCityName}
                 onChange={(e) => setNewCityName(e.target.value)}
-                className="min-w-[160px] flex-1"
-              />
-              <Input
-                label="Cidade"
-                value={newCityCity}
-                onChange={(e) => setNewCityCity(e.target.value)}
-                className="min-w-[140px] flex-1"
-              />
-              <Input
-                label="Unidade"
-                value={newCityUnit}
-                onChange={(e) => setNewCityUnit(e.target.value)}
-                className="min-w-[140px] flex-1"
+                className="min-w-[200px] flex-1"
+                autoFocus
               />
               <Button
                 onClick={() =>
                   createCity.mutate({
-                    name: newCityName,
-                    city: newCityCity,
-                    unit: newCityUnit,
+                    name: "Mercado Livre",
+                    city: newCityName,
+                    unit: `MLB ${newCityName}`,
+                    operationNames: newCityOps,
                   })
                 }
-                disabled={
-                  !newCityName ||
-                  !newCityCity ||
-                  !newCityUnit ||
-                  createCity.isPending
-                }
+                disabled={!newCityName || createCity.isPending}
                 loading={createCity.isPending}
               >
                 <Plus className="h-4 w-4" /> Cadastrar
               </Button>
             </div>
+            <div className="mt-3 flex flex-wrap items-center gap-4">
+              <span className="text-sm text-gray-500 dark:text-gray-400">Operações:</span>
+              {OPERATION_TYPES.map((type) => {
+                const selected = newCityOps.includes(type);
+                return (
+                  <label
+                    key={type}
+                    className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+                      selected
+                        ? "border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-950 dark:text-blue-300"
+                        : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="sr-only"
+                      checked={selected}
+                      onChange={() =>
+                        setNewCityOps((prev) =>
+                          prev.includes(type)
+                            ? prev.filter((t) => t !== type)
+                            : [...prev, type],
+                        )
+                      }
+                    />
+                    {type}
+                  </label>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-xs text-gray-400">
+              Nome exibido: &quot;Mercado Livre - {newCityName || "cidade"}&quot;
+              {newCityOps.length > 0 &&
+                ` · ${newCityOps.length} operação(ões) selecionada(s)`}
+            </p>
           </CardContent>
         </Card>
       )}

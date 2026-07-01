@@ -4,7 +4,9 @@ const publicRoutes = ["/login"];
 
 export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const sessionToken = request.cookies.get("better-auth.session_token")?.value;
+  const sessionToken =
+    request.cookies.get("__Secure-better-auth.session_token")?.value ??
+    request.cookies.get("better-auth.session_token")?.value;
 
   const isPublic = publicRoutes.some((route) => pathname.startsWith(route));
   const isApiAuth = pathname.startsWith("/api/auth");

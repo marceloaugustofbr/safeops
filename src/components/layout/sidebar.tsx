@@ -43,7 +43,7 @@ const menuItems = [
   },
   {
     href: "/admin",
-    label: "Administração",
+    label: "Gestão",
     icon: Shield,
     adminOnly: true,
   },
@@ -58,7 +58,7 @@ export function Sidebar({ userRole }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
 
   const visibleItems = menuItems.filter(
-    (item) => !item.adminOnly || userRole === "ADMIN",
+    (item) => userRole === "ADMIN" ? item.adminOnly : !item.adminOnly,
   );
 
   return (

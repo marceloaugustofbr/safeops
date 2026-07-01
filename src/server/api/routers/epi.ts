@@ -1,9 +1,13 @@
 import { z } from "zod";
-import { createTRPCRouter, adminProcedure } from "~/server/api/trpc";
+import {
+  createTRPCRouter,
+  adminProcedure,
+  protectedProcedure,
+} from "~/server/api/trpc";
 import { epiSchema } from "~/lib/validations/schemas";
 
 export const epiRouter = createTRPCRouter({
-  list: adminProcedure.query(async ({ ctx }) => {
+  list: protectedProcedure.query(async ({ ctx }) => {
     return ctx.db.epi.findMany({
       where: { deletedAt: null },
       orderBy: { name: "asc" },

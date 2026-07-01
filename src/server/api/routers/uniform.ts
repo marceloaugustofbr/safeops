@@ -1,9 +1,13 @@
 import { z } from "zod";
-import { createTRPCRouter, adminProcedure } from "~/server/api/trpc";
+import {
+  createTRPCRouter,
+  adminProcedure,
+  protectedProcedure,
+} from "~/server/api/trpc";
 import { uniformSchema } from "~/lib/validations/schemas";
 
 export const uniformRouter = createTRPCRouter({
-  list: adminProcedure.query(async ({ ctx }) => {
+  list: protectedProcedure.query(async ({ ctx }) => {
     return ctx.db.uniform.findMany({
       where: { deletedAt: null },
       orderBy: { name: "asc" },

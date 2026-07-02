@@ -89,7 +89,7 @@ export const deliveryRouter = createTRPCRouter({
           where,
           include: {
             collaborator: { select: { id: true, name: true, registration: true } },
-            items: { select: { id: true, itemType: true, itemName: true, size: true, quantity: true } },
+            items: { select: { id: true, itemType: true, itemName: true, size: true, quantity: true, reason: { select: { name: true } } } },
             attachments: { select: { id: true, cloudinaryUrl: true, fileName: true, type: true } },
           },
           orderBy: { createdAt: "desc" },

@@ -2,7 +2,8 @@
 
 import { useState, useCallback } from "react";
 import {
-  Search, ChevronDown, ChevronRight, FileText, Download, Users, Eye, Loader2,
+  Search, ChevronDown, ChevronRight, FileText, Users, Eye, Loader2,
+  HardHat, Shirt, Package,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
@@ -19,13 +20,31 @@ function formatDate(date: Date) {
   }).format(date);
 }
 
-function getDeliveryTitle(items: { itemType: string }[]) {
+const typeConfig = {
+  EPI: { label: "EPI", color: "border-l-blue-500", dot: "bg-blue-500", badge: "info", icon: HardHat },
+  UNIFORM: { label: "Unif.", color: "border-l-emerald-500", dot: "bg-emerald-500", badge: "success", icon: Shirt },
+};
+
+function getDeliveryConfig(items: { itemType: string }[]) {
   const types = new Set(items.map((i) => i.itemType));
   if (types.size === 1) {
-    const type = types.values().next().value;
-    return type === "EPI" ? "FICHA DE EPI" : "FICHA DE UNIFORME";
+    const t = types.values().next().value as "EPI" | "UNIFORM";
+    return {
+      title: t === "EPI" ? "FICHA DE EPI" : "FICHA DE UNIFORME",
+      border: typeConfig[t].color,
+    };
   }
-  return "FICHA DE EPI E UNIFORME";
+  return {
+    title: "FICHA DE EPI E UNIFORME",
+    border: "border-l-violet-500",
+  };
+}
+
+function ItemIcon({ type }: { type: string }) {
+  const config = typeConfig[type as "EPI" | "UNIFORM"];
+  if (!config) return <Package className="h-4 w-4" />;
+  const Icon = config.icon;
+  return <Icon className="h-4 w-4" />;
 }
 
 export default function HistoricoPage() {
@@ -80,7 +99,7 @@ export default function HistoricoPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+        <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
           Histórico de Entregas
         </h2>
         <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -90,14 +109,14 @@ export default function HistoricoPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-1">
-          <Card>
-            <CardHeader>
+          <Card className="overflow-hidden">
+            <CardHeader className="border-b border-gray-100 bg-gradient-to-b from-gray-50 to-white pb-4 dark:border-gray-800 dark:from-gray-800/50 dark:to-gray-800">
               <CardTitle>Colaboradores</CardTitle>
-              <div className="relative mt-2">
-                <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <div className="relative mt-3">
+                <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
                 <input
-                  className="w-full rounded-lg border border-gray-300 bg-white py-2 pr-3 pl-10 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-                  placeholder="Pesquisar..."
+                  className="w-full rounded-lg border border-gray-200 bg-white py-2 pr-3 pl-9 text-sm placeholder-gray-400 transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                  placeholder="Buscar colaborador..."
                   value={search}
                   onChange={(e) => {
                     setSearch(e.target.value);
@@ -108,21 +127,31 @@ export default function HistoricoPage() {
                 />
               </div>
             </CardHeader>
-            <CardContent padding="none">
+            <CardContent padding="none" className="max-h-[600px] overflow-y-auto">
               {loadingCollabs ? (
                 <div className="space-y-2 p-4">
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <Skeleton className="h-9 w-9 rounded-full" />
+                      <div className="flex-1 space-y-1">
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-3 w-20" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : collaborators && collaborators.length > 0 ? (
-                <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {collaborators.map((collab) => (
+                <div>
+                  {collaborators.map((collab, idx) => (
                     <button
                       key={collab.id}
                       type="button"
                       className={cn(
-                        "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800",
-                        selectedCollabId === collab.id && "bg-blue-50 dark:bg-blue-900/20",
+                        "flex w-full items-center gap-3 border-l-2 px-4 py-3 text-left transition-all hover:bg-gray-50 dark:hover:bg-gray-800/50",
+                        selectedCollabId === collab.id
+                          ? "border-l-blue-500 bg-blue-50/60 dark:border-l-blue-400 dark:bg-blue-900/15"
+                          : "border-l-transparent",
+                        idx > 0 && "border-t border-t-gray-50 dark:border-t-gray-800",
                       )}
                       onClick={() => {
                         setSelectedCollabId(
@@ -132,22 +161,33 @@ export default function HistoricoPage() {
                         setPage(1);
                       }}
                     >
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                      <div
+                        className={cn(
+                          "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-colors",
+                          selectedCollabId === collab.id
+                            ? "bg-blue-600 text-white"
+                            : "bg-gradient-to-br from-blue-100 to-blue-50 text-blue-700 dark:from-blue-900/60 dark:to-blue-800/60 dark:text-blue-300",
+                        )}
+                      >
                         {collab.name.charAt(0).toUpperCase()}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
                           {collab.name}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="truncate text-xs text-gray-400">
                           Mat. {collab.registration}
                         </p>
                       </div>
+                      {selectedCollabId === collab.id && (
+                        <div className="h-2 w-2 rounded-full bg-blue-500" />
+                      )}
                     </button>
                   ))}
                 </div>
               ) : (
-                <div className="p-6 text-center text-sm text-gray-500">
+                <div className="flex flex-col items-center justify-center py-12 text-sm text-gray-400">
+                  <Users className="mb-2 h-8 w-8 text-gray-300" />
                   Nenhum colaborador com entregas
                 </div>
               )}
@@ -156,45 +196,74 @@ export default function HistoricoPage() {
         </div>
 
         <div className="lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                {selectedCollab ? `Entregas de ${selectedCollab.name}` : "Detalhes"}
-              </CardTitle>
+          <Card className="overflow-hidden">
+            <CardHeader
+              className={cn(
+                "border-b border-gray-100 dark:border-gray-800",
+                selectedCollabId
+                  ? "bg-gradient-to-r from-blue-50 to-white dark:from-blue-950/30 dark:to-gray-800"
+                  : "",
+              )}
+            >
+              {selectedCollab ? (
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-sm font-bold text-white shadow-sm">
+                    {selectedCollab.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-base font-semibold text-gray-900 dark:text-white">
+                      {selectedCollab.name}
+                    </p>
+                    <p className="truncate text-xs text-gray-400">
+                      Mat. {selectedCollab.registration}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <CardTitle className="text-base">Detalhes</CardTitle>
+              )}
             </CardHeader>
             <CardContent padding="none">
               {!selectedCollabId ? (
-                <div className="flex flex-col items-center justify-center py-16 text-sm text-gray-500">
-                  <Users className="mb-3 h-12 w-12 text-gray-300 dark:text-gray-600" />
-                  <p>Selecione um colaborador ao lado</p>
-                  <p className="text-xs text-gray-400">
-                    para visualizar o histórico de entregas
+                <div className="flex flex-col items-center justify-center py-20 text-sm text-gray-400">
+                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800">
+                    <Users className="h-8 w-8 text-gray-300 dark:text-gray-600" />
+                  </div>
+                  <p className="font-medium text-gray-500">Nenhum colaborador selecionado</p>
+                  <p className="mt-1 text-xs text-gray-400">
+                    Escolha um nome na lista ao lado para ver as entregas
                   </p>
                 </div>
               ) : loadingDeliveries ? (
-                <div className="space-y-2 p-4">
-                  <Skeleton className="h-16 w-full" />
-                  <Skeleton className="h-16 w-full" />
+                <div className="space-y-1 p-4">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-16 w-full rounded-lg" />
+                  ))}
                 </div>
               ) : deliveryData && deliveryData.deliveries.length > 0 ? (
-                <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                <div className="divide-y divide-gray-100 dark:divide-gray-800">
                   {deliveryData.deliveries.map((delivery) => {
                     const isOpen = expandedDeliveryId === delivery.id;
-                    const title = getDeliveryTitle(delivery.items);
+                    const { title, border } = getDeliveryConfig(delivery.items);
                     const dateStr = formatDate(delivery.createdAt);
+                    const hasEpi = delivery.items.some((i) => i.itemType === "EPI");
+                    const hasUniform = delivery.items.some((i) => i.itemType === "UNIFORM");
 
                     return (
                       <div key={delivery.id}>
                         <button
                           type="button"
-                          className="flex w-full items-center gap-3 px-6 py-4 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800"
+                          className={cn(
+                            "flex w-full items-center gap-3 border-l-2 px-6 py-4 text-left transition-all hover:bg-gray-50 dark:hover:bg-gray-800/50",
+                            isOpen ? border : "border-l-transparent",
+                          )}
                           onClick={() =>
                             setExpandedDeliveryId(
                               expandedDeliveryId === delivery.id ? null : delivery.id,
                             )
                           }
                         >
-                          <div className="shrink-0 text-gray-400">
+                          <div className="shrink-0 text-gray-300 transition-transform duration-200 dark:text-gray-600">
                             {isOpen ? (
                               <ChevronDown className="h-4 w-4" />
                             ) : (
@@ -205,70 +274,103 @@ export default function HistoricoPage() {
                             <p className="font-semibold text-gray-900 dark:text-white">
                               {title}
                             </p>
-                            <p className="text-xs text-gray-500">
-                              {delivery.items.length} item(ns)
-                            </p>
+                            <div className="mt-0.5 flex items-center gap-2">
+                              <span className="text-xs text-gray-400">
+                                {delivery.items.length} item(ns)
+                              </span>
+                              <span className="text-gray-300 dark:text-gray-600">•</span>
+                              <div className="flex gap-1.5">
+                                {hasEpi && (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
+                                    <HardHat className="h-2.5 w-2.5" />
+                                    EPI
+                                  </span>
+                                )}
+                                {hasUniform && (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">
+                                    <Shirt className="h-2.5 w-2.5" />
+                                    Unif.
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                          <div className="shrink-0 text-right text-sm text-gray-500 tabular-nums">
+                          <div className="shrink-0 text-right text-xs text-gray-400 tabular-nums">
                             {dateStr}
                           </div>
                         </button>
 
                         {isOpen && (
-                          <div className="border-t border-gray-100 bg-gray-50/50 px-6 py-4 dark:border-gray-700 dark:bg-gray-800/50">
-                            <div className="mb-3">
-                              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">
-                                Itens retirados
-                              </p>
-                              <div className="space-y-1.5">
-                                {delivery.items.map((item) => (
-                                  <div
-                                    key={item.id}
-                                    className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900"
-                                  >
-                                    <span className="font-medium text-gray-900 dark:text-white">
-                                      {item.quantity}x {item.itemName}
-                                      {item.size && ` (${item.size})`}
-                                    </span>
-                                    <Badge
-                                      variant={item.itemType === "EPI" ? "info" : "default"}
-                                      className="ml-auto"
-                                    >
-                                      {item.itemType === "EPI" ? "EPI" : "Unif."}
-                                    </Badge>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-
+                          <div className="border-t border-gray-100 bg-gray-50/70 px-6 py-4 dark:border-gray-800 dark:bg-gray-800/30">
                             <div>
-                              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">
-                                Documentos
-                              </p>
-                              <div className="flex flex-wrap gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  loading={downloadingId === delivery.id}
-                                  onClick={() => handleDownload(delivery.id)}
+                              <div className="mb-3 flex items-center justify-between">
+                                <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400">
+                                  Itens retirados
+                                </p>
+                                <button
+                                  type="button"
+                                  title="Baixar ficha"
+                                  className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium text-gray-400 transition-colors hover:bg-white hover:text-gray-700 hover:shadow-sm dark:hover:bg-gray-800 dark:hover:text-gray-300"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDownload(delivery.id);
+                                  }}
                                 >
-                                  <FileText className="h-3.5 w-3.5" />
-                                  Baixar PDF
-                                </Button>
-                                {delivery.attachments
-                                  .filter((a) => a.type === "PDF")
-                                  .map((att) => (
-                                    <a
-                                      key={att.id}
-                                      href={att.cloudinaryUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-blue-600 transition-colors hover:bg-blue-50 dark:border-gray-600 dark:bg-gray-900 dark:text-blue-400 dark:hover:bg-blue-900/20"
+                                  {downloadingId === delivery.id ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <FileText className="h-3.5 w-3.5" />
+                                  )}
+                                  Baixar
+                                </button>
+                              </div>
+                              <div className="space-y-2">
+                                {delivery.items.map((item) => {
+                                  const cfg = typeConfig[item.itemType as "EPI" | "UNIFORM"];
+                                  return (
+                                    <div
+                                      key={item.id}
+                                      className="group flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm transition-all hover:border-gray-300 hover:shadow-md dark:border-gray-700 dark:bg-gray-900 dark:hover:border-gray-600"
                                     >
-                                      <Download className="h-3 w-3" />
-                                      {att.fileName}
-                                    </a>
-                                  ))}
+                                      <div
+                                        className={cn(
+                                          "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+                                          item.itemType === "EPI"
+                                            ? "bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400"
+                                            : "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400",
+                                        )}
+                                      >
+                                        <ItemIcon type={item.itemType} />
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                          {item.itemName}
+                                          {item.size && (
+                                            <span className="ml-1 font-normal text-gray-400">
+                                              ({item.size})
+                                            </span>
+                                          )}
+                                        </p>
+                                        <p className="text-xs text-gray-400">
+                                          {item.reason?.name ?? ""}
+                                        </p>
+                                      </div>
+                                      <div className="flex shrink-0 items-center gap-3">
+                                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                                          x{item.quantity}
+                                        </span>
+                                        {cfg && (
+                                          <Badge
+                                            variant={cfg.badge as "info" | "success"}
+                                            className="hidden sm:inline-flex"
+                                          >
+                                            {cfg.label}
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
                           </div>
@@ -278,22 +380,24 @@ export default function HistoricoPage() {
                   })}
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center py-16 text-sm text-gray-500">
-                  <Eye className="mb-3 h-12 w-12 text-gray-300 dark:text-gray-600" />
-                  <p>Nenhuma entrega encontrada</p>
-                  <p className="text-xs text-gray-400">
-                    este colaborador ainda não possui registros
+                <div className="flex flex-col items-center justify-center py-20 text-sm text-gray-400">
+                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800">
+                    <Eye className="h-8 w-8 text-gray-300 dark:text-gray-600" />
+                  </div>
+                  <p className="font-medium text-gray-500">Nenhuma entrega encontrada</p>
+                  <p className="mt-1 text-xs text-gray-400">
+                    Este colaborador ainda não possui registros
                   </p>
                 </div>
               )}
             </CardContent>
 
             {deliveryData && deliveryData.totalPages > 1 && (
-              <div className="flex items-center justify-between border-t border-gray-200 px-6 py-3 dark:border-gray-700">
-                <p className="text-sm text-gray-500">
-                  Página {deliveryData.page} de {deliveryData.totalPages} ({deliveryData.total} registros)
+              <div className="flex items-center justify-between border-t border-gray-100 px-6 py-3 dark:border-gray-800">
+                <p className="text-xs text-gray-400">
+                  Página {deliveryData.page} de {deliveryData.totalPages} · {deliveryData.total} registros
                 </p>
-                <div className="flex gap-2">
+                <div className="flex gap-1.5">
                   <Button
                     variant="outline"
                     size="sm"

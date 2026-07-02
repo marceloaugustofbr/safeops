@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, UserPlus, FileSpreadsheet } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Select } from "~/components/ui/select";
@@ -16,6 +16,8 @@ import {
 } from "~/components/ui/table";
 import { Badge } from "~/components/ui/badge";
 import { Skeleton } from "~/components/ui/skeleton";
+import { Modal } from "~/components/ui/modal";
+import { ExcelImport } from "~/components/collaborator/excel-import";
 import { api } from "~/trpc/react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
@@ -24,6 +26,9 @@ import {
   collaboratorSchema,
   type CollaboratorInput,
 } from "~/lib/validations/schemas";
+import { cn } from "~/lib/utils";
+
+type Mode = "choose" | "manual" | "excel";
 
 function CollaboratorForm({
   onSuccess,
@@ -103,11 +108,22 @@ function CollaboratorForm({
 }
 
 export default function CollaboratorsPage() {
-  const [showForm, setShowForm] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [mode, setMode] = useState<Mode>("choose");
   const [search, setSearch] = useState("");
   const { data: collaborators, isLoading } = api.collaborator.list.useQuery({
     search: search || undefined,
   });
+
+  function openModal() {
+    setMode("choose");
+    setModalOpen(true);
+  }
+
+  function closeModal() {
+    setModalOpen(false);
+    setMode("choose");
+  }
 
   return (
     <div className="space-y-6">
@@ -120,24 +136,66 @@ export default function CollaboratorsPage() {
             Cadastro de colaboradores da unidade
           </p>
         </div>
-        <Button onClick={() => setShowForm(true)}>
+        <Button onClick={openModal}>
           <Plus className="h-4 w-4" /> Novo Colaborador
         </Button>
       </div>
 
-      {showForm && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Novo Colaborador</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CollaboratorForm
-              onSuccess={() => setShowForm(false)}
-              onCancel={() => setShowForm(false)}
-            />
-          </CardContent>
-        </Card>
-      )}
+      <Modal
+        open={modalOpen}
+        onClose={closeModal}
+        title={
+          mode === "choose"
+            ? "Novo Colaborador"
+            : mode === "manual"
+              ? "Cadastro Manual"
+              : "Importar Excel"
+        }
+        className={mode === "excel" ? "max-w-2xl" : undefined}
+      >
+        {mode === "choose" ? (
+          <div className="grid gap-3 py-2">
+            <button
+              type="button"
+              onClick={() => setMode("manual")}
+              className="flex items-center gap-4 rounded-xl border border-gray-200 bg-white px-5 py-4 text-left transition-all hover:border-blue-300 hover:shadow-md dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-600"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400">
+                <UserPlus className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                  Cadastro Manual
+                </p>
+                <p className="text-xs text-gray-500">
+                  Preencha os dados do colaborador um a um
+                </p>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("excel")}
+              className="flex items-center gap-4 rounded-xl border border-gray-200 bg-white px-5 py-4 text-left transition-all hover:border-emerald-300 hover:shadow-md dark:border-gray-700 dark:bg-gray-800 dark:hover:border-emerald-600"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400">
+                <FileSpreadsheet className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                  Importar Excel
+                </p>
+                <p className="text-xs text-gray-500">
+                  Importar múltiplos colaboradores de uma vez
+                </p>
+              </div>
+            </button>
+          </div>
+        ) : mode === "manual" ? (
+          <CollaboratorForm onSuccess={closeModal} onCancel={closeModal} />
+        ) : (
+          <ExcelImport onSuccess={closeModal} />
+        )}
+      </Modal>
 
       <Card>
         <CardHeader>

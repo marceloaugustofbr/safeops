@@ -119,6 +119,90 @@ export const collaboratorRouter = createTRPCRouter({
       });
     }),
 
+  createMany: protectedProcedure
+    .input(
+      z.object({
+        collaborators: z.array(
+          z.object({
+            registration: z.string().min(1),
+            name: z.string().min(1),
+            manager: z.string().min(1),
+            operationName: z.string().min(1),
+            admissionDate: z.string().min(1),
+          }),
+        ),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const isAdmin = ctx.session.user.role === "ADMIN";
+      const userLocationId = ctx.session.user.locationId;
+
+      if (!isAdmin && !userLocationId) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Usuário sem localização não pode cadastrar colaboradores",
+        });
+      }
+
+      const locationId = isAdmin ? userLocationId! : userLocationId!;
+
+      const operations = await ctx.db.operation.findMany({
+        where: { locationId },
+        select: { id: true, name: true },
+      });
+      const opMap = new Map(operations.map((o) => [o.name.toLowerCase(), o.id]));
+
+      const created: string[] = [];
+      const skipped: { registration: string; reason: string }[] = [];
+      const errors: { registration: string; reason: string }[] = [];
+
+      for (const c of input.collaborators) {
+        try {
+          const opId = opMap.get(c.operationName.toLowerCase());
+          if (!opId) {
+            errors.push({
+              registration: c.registration,
+              reason: `Operação "${c.operationName}" não encontrada`,
+            });
+            continue;
+          }
+
+          const existing = await ctx.db.collaborator.findUnique({
+            where: { registration: c.registration },
+          });
+
+          if (existing) {
+            skipped.push({
+              registration: c.registration,
+              reason: "Matrícula já cadastrada",
+            });
+            continue;
+          }
+
+          await ctx.db.collaborator.create({
+            data: {
+              registration: c.registration,
+              name: c.name,
+              manager: c.manager,
+              admissionDate: new Date(c.admissionDate),
+              operationId: opId,
+              locationId,
+              createdById: ctx.session.user.id,
+              status: "ACTIVE",
+            },
+          });
+          created.push(c.registration);
+        } catch (e) {
+          errors.push({
+            registration: c.registration,
+            reason: e instanceof Error ? e.message : "Erro desconhecido",
+          });
+        }
+      }
+
+      return { created, skipped, errors, total: input.collaborators.length };
+    }),
+
   toggleStatus: protectedProcedure
     .input(z.string())
     .mutation(async ({ ctx, input }) => {

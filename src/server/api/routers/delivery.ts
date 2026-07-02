@@ -114,7 +114,7 @@ export const deliveryRouter = createTRPCRouter({
       return ctx.db.delivery.findUnique({
         where: { id: input },
         include: {
-          collaborator: true,
+          collaborator: { include: { operation: true } },
           user: true,
           items: { include: { reason: true } },
           attachments: true,

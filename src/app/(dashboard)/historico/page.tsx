@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
-  Search, ChevronDown, ChevronRight, FileText, Download, Users, Eye,
+  Search, ChevronDown, ChevronRight, FileText, Download, Users, Eye, Loader2,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
@@ -10,6 +10,7 @@ import { Button } from "~/components/ui/button";
 import { Skeleton } from "~/components/ui/skeleton";
 import { api } from "~/trpc/react";
 import { cn } from "~/lib/utils";
+import { generateDeliveryPdf } from "~/lib/pdf";
 
 function formatDate(date: Date) {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -31,6 +32,7 @@ export default function HistoricoPage() {
   const [search, setSearch] = useState("");
   const [selectedCollabId, setSelectedCollabId] = useState<string | null>(null);
   const [expandedDeliveryId, setExpandedDeliveryId] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
   const { data: collaborators, isLoading: loadingCollabs } = api.delivery.getCollaborators.useQuery({
@@ -42,7 +44,38 @@ export default function HistoricoPage() {
     { enabled: !!selectedCollabId },
   );
 
+  const { data: fullDelivery } = api.delivery.getById.useQuery(
+    downloadingId ?? "",
+    { enabled: !!downloadingId },
+  );
+
   const selectedCollab = collaborators?.find((c) => c.id === selectedCollabId);
+
+  const handleDownload = useCallback((deliveryId: string) => {
+    setDownloadingId(deliveryId);
+  }, []);
+
+  if (fullDelivery && downloadingId === fullDelivery.id) {
+    const pdf = generateDeliveryPdf({
+      collaboratorName: fullDelivery.collaborator.name,
+      collaboratorRegistration: fullDelivery.collaborator.registration,
+      manager: fullDelivery.collaborator.manager,
+      operation: fullDelivery.collaborator.operation?.name ?? "",
+      date: new Intl.DateTimeFormat("pt-BR").format(new Date(fullDelivery.date)),
+      signature: fullDelivery.signature ?? undefined,
+      items: fullDelivery.items.map((item) => ({
+        itemType: item.itemType,
+        itemName: item.itemName,
+        size: item.size ?? undefined,
+        quantity: item.quantity,
+        reason: item.reason?.name ?? "",
+        notes: item.notes ?? undefined,
+      })),
+    });
+    const filename = `ficha-${fullDelivery.collaborator.registration}-${new Date(fullDelivery.createdAt).toISOString().split("T")[0]}.pdf`;
+    pdf.save(filename);
+    setDownloadingId(null);
+  }
 
   return (
     <div className="space-y-6">
@@ -208,30 +241,36 @@ export default function HistoricoPage() {
                               </div>
                             </div>
 
-                            {delivery.attachments.filter((a) => a.type === "PDF").length > 0 && (
-                              <div>
-                                <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">
-                                  Documentos
-                                </p>
-                                <div className="flex flex-wrap gap-2">
-                                  {delivery.attachments
-                                    .filter((a) => a.type === "PDF")
-                                    .map((att) => (
-                                      <a
-                                        key={att.id}
-                                        href={att.cloudinaryUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-blue-600 transition-colors hover:bg-blue-50 dark:border-gray-600 dark:bg-gray-900 dark:text-blue-400 dark:hover:bg-blue-900/20"
-                                      >
-                                        <FileText className="h-3.5 w-3.5" />
-                                        {att.fileName}
-                                        <Download className="h-3 w-3" />
-                                      </a>
-                                    ))}
-                                </div>
+                            <div>
+                              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">
+                                Documentos
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  loading={downloadingId === delivery.id}
+                                  onClick={() => handleDownload(delivery.id)}
+                                >
+                                  <FileText className="h-3.5 w-3.5" />
+                                  Baixar PDF
+                                </Button>
+                                {delivery.attachments
+                                  .filter((a) => a.type === "PDF")
+                                  .map((att) => (
+                                    <a
+                                      key={att.id}
+                                      href={att.cloudinaryUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-blue-600 transition-colors hover:bg-blue-50 dark:border-gray-600 dark:bg-gray-900 dark:text-blue-400 dark:hover:bg-blue-900/20"
+                                    >
+                                      <Download className="h-3 w-3" />
+                                      {att.fileName}
+                                    </a>
+                                  ))}
                               </div>
-                            )}
+                            </div>
                           </div>
                         )}
                       </div>

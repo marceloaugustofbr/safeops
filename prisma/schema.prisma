@@ -192,6 +192,7 @@ model Delivery {
   @@index([collaboratorId])
   @@index([locationId])
   @@index([date])
+  @@index([createdAt])
   @@map("delivery")
 }
 

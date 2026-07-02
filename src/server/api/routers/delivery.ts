@@ -20,18 +20,50 @@ const createDeliverySchema = z.object({
 });
 
 export const deliveryRouter = createTRPCRouter({
+  getCollaborators: protectedProcedure
+    .input(z.object({ search: z.string().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const isAdmin = ctx.session.user.role === "ADMIN";
+      const userLocationId = ctx.session.user.locationId;
+
+      const where: Record<string, unknown> = {
+        deliveries: { some: {} },
+      };
+
+      if (!isAdmin && userLocationId) {
+        where.locationId = userLocationId;
+      }
+
+      if (input?.search) {
+        where.OR = [
+          { name: { contains: input.search, mode: "insensitive" } },
+          { registration: { contains: input.search, mode: "insensitive" } },
+        ];
+      }
+
+      return ctx.db.collaborator.findMany({
+        where,
+        select: { id: true, name: true, registration: true },
+        orderBy: { name: "asc" },
+      });
+    }),
+
   list: protectedProcedure
     .input(
       z
         .object({
           collaboratorId: z.string().optional(),
           search: z.string().optional(),
+          page: z.number().int().min(1).default(1),
+          pageSize: z.number().int().min(1).max(100).default(20),
         })
         .optional(),
     )
     .query(async ({ ctx, input }) => {
       const isAdmin = ctx.session.user.role === "ADMIN";
       const userLocationId = ctx.session.user.locationId;
+      const page = input?.page ?? 1;
+      const pageSize = input?.pageSize ?? 20;
 
       const where: Record<string, unknown> = {};
 
@@ -52,16 +84,28 @@ export const deliveryRouter = createTRPCRouter({
         };
       }
 
-      return ctx.db.delivery.findMany({
-        where,
-        include: {
-          collaborator: true,
-          user: true,
-          items: { include: { reason: true } },
-          attachments: true,
-        },
-        orderBy: { createdAt: "desc" },
-      });
+      const [deliveries, total] = await ctx.db.$transaction([
+        ctx.db.delivery.findMany({
+          where,
+          include: {
+            collaborator: { select: { id: true, name: true, registration: true } },
+            items: { select: { id: true, itemType: true, itemName: true, size: true, quantity: true } },
+            attachments: { select: { id: true, cloudinaryUrl: true, fileName: true, type: true } },
+          },
+          orderBy: { createdAt: "desc" },
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+        }),
+        ctx.db.delivery.count({ where }),
+      ]);
+
+      return {
+        deliveries,
+        total,
+        page,
+        pageSize,
+        totalPages: Math.ceil(total / pageSize),
+      };
     }),
 
   getById: protectedProcedure

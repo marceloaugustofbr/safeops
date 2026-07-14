@@ -228,6 +228,7 @@ export default function OperationAdminPage() {
     id: string;
     label: string;
   } | null>(null);
+  const [deleteOpConfirm, setDeleteOpConfirm] = useState<string | null>(null);
 
   const { data: operations, isLoading: opsLoading } =
     api.operation.list.useQuery();
@@ -238,6 +239,7 @@ export default function OperationAdminPage() {
     onSuccess: () => {
       toast.success("Operação removida");
       void utils.operation.list.invalidate();
+      setDeleteOpConfirm(null);
     },
     onError: (e) => toast.error(e.message),
   });
@@ -306,6 +308,34 @@ export default function OperationAdminPage() {
                 variant="danger"
                 onClick={() => deleteCity.mutate(deleteConfirm.id)}
                 loading={deleteCity.isPending}
+              >
+                Excluir
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteOpConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="mx-4 w-full max-w-sm rounded-xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-700 dark:bg-gray-800">
+            <h3 className="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
+              Excluir Operação
+            </h3>
+            <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+              Tem certeza que deseja excluir esta operação?
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setDeleteOpConfirm(null)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => del.mutate(deleteOpConfirm)}
+                loading={del.isPending}
               >
                 Excluir
               </Button>
@@ -450,7 +480,7 @@ export default function OperationAdminPage() {
                       >
                         {op.name}
                         <button
-                          onClick={() => del.mutate(op.id)}
+                          onClick={() => setDeleteOpConfirm(op.id)}
                           className="ml-0.5 rounded-full p-0.5 hover:bg-red-200 dark:hover:bg-red-800"
                           title="Remover operação"
                         >

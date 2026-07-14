@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   Search, ChevronDown, ChevronRight, FileText, Users, Eye, Loader2,
   HardHat, Shirt, Package,
@@ -74,27 +74,66 @@ export default function HistoricoPage() {
     setDownloadingId(deliveryId);
   }, []);
 
-  if (fullDelivery && downloadingId === fullDelivery.id) {
-    const pdf = generateDeliveryPdf({
-      collaboratorName: fullDelivery.collaborator.name,
-      collaboratorRegistration: fullDelivery.collaborator.registration,
-      manager: fullDelivery.collaborator.manager,
-      operation: fullDelivery.collaborator.operation?.name ?? "",
-      date: new Intl.DateTimeFormat("pt-BR").format(new Date(fullDelivery.date)),
-      signature: fullDelivery.signature ?? undefined,
-      items: fullDelivery.items.map((item) => ({
-        itemType: item.itemType,
-        itemName: item.itemName,
-        size: item.size ?? undefined,
-        quantity: item.quantity,
-        reason: item.reason?.name ?? "",
-        notes: item.notes ?? undefined,
-      })),
-    });
-    const filename = `ficha-${fullDelivery.collaborator.registration}-${new Date(fullDelivery.createdAt).toISOString().split("T")[0]}.pdf`;
-    pdf.save(filename);
-    setDownloadingId(null);
-  }
+  useEffect(() => {
+    const delivery = fullDelivery;
+    if (!delivery || downloadingId !== delivery.id) return;
+
+    let cancelled = false;
+    const d = delivery;
+
+    async function download() {
+      const signatureAttachment = d.attachments.find(
+        (a) => a.type === "SIGNATURE",
+      );
+
+      let signatureBase64: string | undefined;
+
+      if (signatureAttachment) {
+        try {
+          const resp = await fetch(signatureAttachment.cloudinaryUrl);
+          const blob = await resp.blob();
+          signatureBase64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
+        } catch {
+          // signature unavailable — skip
+        }
+      }
+
+      if (cancelled) return;
+
+      const pdf = generateDeliveryPdf({
+        collaboratorName: d.collaborator.name,
+        collaboratorRegistration: d.collaborator.registration,
+        collaboratorRole: d.collaborator.role ?? undefined,
+        manager: d.collaborator.manager,
+        operation: d.collaborator.operation?.name ?? "",
+        date: new Intl.DateTimeFormat("pt-BR").format(new Date(d.date)),
+        signature: signatureBase64,
+        deviceType: (d as { deviceType?: string | null }).deviceType,
+        ipAddress: (d as { ipAddress?: string | null }).ipAddress,
+        geoLatitude: (d as { geoLatitude?: number | null }).geoLatitude,
+        geoLongitude: (d as { geoLongitude?: number | null }).geoLongitude,
+        items: d.items.map((item) => ({
+          itemType: item.itemType,
+          itemName: item.itemName,
+          size: item.size ?? undefined,
+          quantity: item.quantity,
+          reason: item.reason?.name ?? "",
+          notes: item.notes ?? undefined,
+        })),
+      });
+      const filename = `ficha-${d.collaborator.registration}-${new Date(d.createdAt).toISOString().split("T")[0]}.pdf`;
+      pdf.save(filename);
+      setDownloadingId(null);
+    }
+
+    download();
+
+    return () => { cancelled = true; };
+  }, [fullDelivery, downloadingId]);
 
   return (
     <div className="space-y-6">

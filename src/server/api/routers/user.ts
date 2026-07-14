@@ -10,7 +10,7 @@ import { auth } from "~/server/better-auth";
 export const userRouter = createTRPCRouter({
   list: adminProcedure.query(async ({ ctx }) => {
     return ctx.db.user.findMany({
-      include: { location: true },
+      select: { id: true, name: true, email: true, role: true, locationId: true, location: { select: { name: true, city: true } } },
       orderBy: { name: "asc" },
     });
   }),
@@ -18,7 +18,7 @@ export const userRouter = createTRPCRouter({
   getById: adminProcedure.input(z.string()).query(async ({ ctx, input }) => {
     return ctx.db.user.findUnique({
       where: { id: input },
-      include: { location: true },
+      select: { id: true, name: true, email: true, role: true, locationId: true, location: { select: { name: true, city: true } } },
     });
   }),
 
@@ -62,6 +62,17 @@ export const userRouter = createTRPCRouter({
     }),
 
   delete: adminProcedure.input(z.string()).mutation(async ({ ctx, input }) => {
+    const deliveriesCount = await ctx.db.delivery.count({
+      where: { userId: input },
+    });
+
+    if (deliveriesCount > 0) {
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message: `Não é possível excluir: usuário possui ${deliveriesCount} entrega(s) vinculada(s)`,
+      });
+    }
+
     return ctx.db.user.delete({ where: { id: input } });
   }),
 });

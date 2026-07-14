@@ -46,9 +46,14 @@ export const userUpdateSchema = z.object({
 export const collaboratorSchema = z.object({
   registration: z.string().min(1, "Matrícula é obrigatória"),
   name: z.string().min(1, "Nome é obrigatório"),
+  role: z.string().optional(),
   manager: z.string().min(1, "Gestor é obrigatório"),
   operationId: z.string().min(1, "Operação é obrigatória"),
-  admissionDate: z.string().min(1, "Data de admissão é obrigatória"),
+  admissionDate: z
+    .string()
+    .min(1, "Data de admissão é obrigatória")
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Formato deve ser YYYY-MM-DD")
+    .refine((val) => !isNaN(Date.parse(val)), "Data inválida"),
   locationId: z.string().optional(),
 });
 

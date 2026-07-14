@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import {
   createTRPCRouter,
   adminProcedure,
@@ -11,10 +12,10 @@ export const operationRouter = createTRPCRouter({
     const isAdmin = ctx.session.user.role === "ADMIN";
     const locationId = ctx.session.user.locationId;
 
-    return ctx.db.operation.findMany({
-      where: isAdmin ? undefined : { locationId: locationId ?? undefined },
-      include: { location: true },
-      orderBy: [{ name: "asc" }],
+      return ctx.db.operation.findMany({
+        where: isAdmin ? undefined : { locationId: locationId ?? undefined },
+        select: { id: true, name: true, locationId: true, location: { select: { name: true, city: true } } },
+        orderBy: [{ name: "asc" }],
     });
   }),
 
@@ -47,6 +48,17 @@ export const operationRouter = createTRPCRouter({
     }),
 
   delete: adminProcedure.input(z.string()).mutation(async ({ ctx, input }) => {
+    const collaboratorsCount = await ctx.db.collaborator.count({
+      where: { operationId: input },
+    });
+
+    if (collaboratorsCount > 0) {
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message: `Não é possível excluir: ${collaboratorsCount} colaborador(es) vinculado(s) a esta operação`,
+      });
+    }
+
     return ctx.db.operation.delete({ where: { id: input } });
   }),
 });

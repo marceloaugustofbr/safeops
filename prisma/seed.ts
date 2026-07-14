@@ -70,13 +70,13 @@ async function main() {
   console.log("✅ Reasons seeded");
 
   const epiNames = [
-    "Capacete",
-    "Luva",
-    "Óculos",
-    "Botina",
-    "Colete",
-    "Protetor Auricular",
-    "Respirador",
+    "Luva de proteção SOFT540",
+    "Colete refletivo",
+    "Bota de proteção com metatarso",
+    "Casquete",
+    "Capacete de proteção",
+    "Protetor Solar 60FPS",
+    "Óculos escuro de proteção",
   ];
 
   for (const name of epiNames) {

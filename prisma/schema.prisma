@@ -100,6 +100,7 @@ model Operation {
   collaborators Collaborator[]
 
   @@unique([name, locationId])
+  @@index([locationId])
   @@map("operation")
 }
 
@@ -107,6 +108,7 @@ model Collaborator {
   id            String   @id @default(uuid())
   registration  String   @unique
   name          String
+  role         String?
   manager       String
   admissionDate DateTime
   status        String   @default("ACTIVE")
@@ -127,6 +129,8 @@ model Collaborator {
   @@index([registration])
   @@index([name])
   @@index([locationId])
+  @@index([operationId])
+  @@index([createdById])
   @@map("collaborator")
 }
 
@@ -142,6 +146,7 @@ model Epi {
   deletedAt    DateTime?
 
   @@index([name])
+  @@index([deletedAt])
   @@map("epi")
 }
 
@@ -153,6 +158,7 @@ model Uniform {
   deletedAt DateTime?
 
   @@index([name])
+  @@index([deletedAt])
   @@map("uniform")
 }
 
@@ -172,7 +178,6 @@ model Reason {
 model Delivery {
   id        String   @id @default(uuid())
   date      DateTime
-  signature String?
 
   collaboratorId String
   collaborator   Collaborator @relation(fields: [collaboratorId], references: [id])
@@ -183,6 +188,11 @@ model Delivery {
   userId String
   user   User   @relation(fields: [userId], references: [id])
 
+  deviceType  String?
+  ipAddress   String?
+  geoLatitude  Float?
+  geoLongitude Float?
+
   items       DeliveryItem[]
   attachments Attachment[]
 
@@ -191,6 +201,7 @@ model Delivery {
 
   @@index([collaboratorId])
   @@index([locationId])
+  @@index([userId])
   @@index([date])
   @@index([createdAt])
   @@map("delivery")

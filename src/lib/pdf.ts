@@ -3,10 +3,15 @@ import jsPDF from "jspdf";
 interface PdfDeliveryData {
   collaboratorName: string;
   collaboratorRegistration: string;
+  collaboratorRole?: string;
   manager: string;
   operation: string;
   date: string;
   signature?: string;
+  deviceType?: string | null;
+  ipAddress?: string | null;
+  geoLatitude?: number | null;
+  geoLongitude?: number | null;
   items: {
     itemType: string;
     itemName: string;
@@ -49,10 +54,19 @@ export function generateDeliveryPdf(data: PdfDeliveryData): jsPDF {
   doc.text(`Nome: ${data.collaboratorName}`, 20, y);
   doc.text(`Matrícula: ${data.collaboratorRegistration}`, 120, y);
   y += 7;
-  doc.text(`Gestor: ${data.manager}`, 20, y);
-  doc.text(`Operação: ${data.operation}`, 120, y);
-  y += 7;
+  if (data.collaboratorRole) {
+    doc.text(`Cargo: ${data.collaboratorRole}`, 20, y);
+    doc.text(`Gestor: ${data.manager}`, 120, y);
+    y += 7;
+  } else {
+    doc.text(`Gestor: ${data.manager}`, 20, y);
+    doc.text(`Operação: ${data.operation}`, 120, y);
+    y += 7;
+  }
   doc.text(`Data: ${data.date}`, 20, y);
+  if (data.collaboratorRole) {
+    doc.text(`Operação: ${data.operation}`, 120, y);
+  }
 
   y += 12;
   doc.setDrawColor(200);
@@ -79,6 +93,10 @@ export function generateDeliveryPdf(data: PdfDeliveryData): jsPDF {
   });
 
   if (data.signature) {
+    if (y > 210) {
+      doc.addPage();
+      y = 20;
+    }
     y += 10;
     doc.setFont("helvetica", "bold");
     doc.text("Assinatura do Colaborador", 20, y);
@@ -89,9 +107,29 @@ export function generateDeliveryPdf(data: PdfDeliveryData): jsPDF {
     } catch {
       doc.text("(Assinatura digital registrada)", 50, y + 20);
     }
+    y += 50;
   }
 
-  y += 50;
+  if (y > 230) {
+    doc.addPage();
+    y = 20;
+  }
+  doc.setDrawColor(200);
+  doc.line(20, y, 190, y);
+  y += 6;
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "bold");
+  doc.text("Dados da coleta", 20, y);
+  y += 5;
+  doc.setFont("helvetica", "normal");
+  const metaParts: string[] = [];
+  if (data.deviceType) metaParts.push(`Dispositivo: ${data.deviceType}`);
+  if (data.ipAddress) metaParts.push(`IP: ${data.ipAddress}`);
+  if (data.geoLatitude != null && data.geoLongitude != null)
+    metaParts.push(`GPS: ${data.geoLatitude.toFixed(6)}, ${data.geoLongitude.toFixed(6)}`);
+  doc.text(metaParts.length > 0 ? metaParts.join("  |  ") : "Nenhum metadado registrado", 20, y);
+  y += 8;
+
   doc.setDrawColor(200);
   doc.line(20, y, 190, y);
 

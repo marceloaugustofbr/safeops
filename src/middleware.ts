@@ -22,6 +22,7 @@ export default async function middleware(request: NextRequest) {
   }
 
   if (sessionToken && isPublic) {
+    if (pathname === "/login") return NextResponse.next();
     return NextResponse.redirect(new URL("/", request.url));
   }
 

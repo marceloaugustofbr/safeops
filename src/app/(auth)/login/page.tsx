@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { HardHat } from "lucide-react";
+import { HardHat, Eye, EyeOff } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { authClient } from "~/server/better-auth/client";
@@ -16,11 +16,21 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
+  const [attempts, setAttempts] = useState(0);
+  const [blockedUntil, setBlockedUntil] = useState<Date | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (blockedUntil && new Date() < blockedUntil) {
+      const secs = Math.ceil((blockedUntil.getTime() - Date.now()) / 1000);
+      setError(`Muitas tentativas. Aguarde ${secs}s.`);
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -31,10 +41,18 @@ function LoginForm() {
       });
 
       if (result?.error) {
+        const newAttempts = attempts + 1;
+        setAttempts(newAttempts);
+        if (newAttempts >= 3) {
+          setBlockedUntil(new Date(Date.now() + 30000));
+          setAttempts(0);
+        }
         setError(result.error.message ?? "Erro ao autenticar");
         return;
       }
 
+      setAttempts(0);
+      setBlockedUntil(null);
       router.push(redirect);
       router.refresh();
     } catch {
@@ -57,33 +75,42 @@ function LoginForm() {
         autoComplete="email"
       />
 
-      <Input
-        id="password"
-        label="Senha"
-        type="password"
-        placeholder="••••••••"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-        autoComplete="current-password"
-      />
-
-      <div className="flex items-center justify-between">
-        <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-          <input
-            type="checkbox"
-            checked={remember}
-            onChange={(e) => setRemember(e.target.checked)}
-            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          />
-          Lembrar acesso
+      <div className="space-y-1">
+        <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          Senha
         </label>
-        <button
-          type="button"
-          className="text-sm text-blue-600 hover:text-blue-500 dark:text-blue-400"
-        >
-          Esqueci minha senha
-        </button>
+        <div className="relative">
+          <input
+            id="password"
+            type={showPassword ? "text" : "password"}
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            autoComplete="current-password"
+            className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 pr-10 text-sm text-gray-900 placeholder-gray-400 transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            tabIndex={-1}
+          >
+            {showPassword ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+          </button>
+        </div>
+      </div>
+
+      <div className="pt-1">
+      <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+        <input
+          type="checkbox"
+          checked={remember}
+          onChange={(e) => setRemember(e.target.checked)}
+          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+        />
+        Lembrar acesso
+      </label>
       </div>
 
       {error && (

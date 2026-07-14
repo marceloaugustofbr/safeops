@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus, Pencil, Trash2, ArrowLeft } from "lucide-react";
+import { Plus, Pencil, Trash2, ArrowLeft, AlertTriangle } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Select } from "~/components/ui/select";
+import { Modal } from "~/components/ui/modal";
 import { Card, CardHeader, CardTitle, CardContent } from "~/components/ui/card";
 import {
   Table,
@@ -73,8 +74,7 @@ function UserForm({
   });
   const onSubmit = (data: UserInput) => {
     if (initialData?.id) {
-      const { password, ...updateData } = data;
-      void password;
+      const { password: _, ...updateData } = data;
       update.mutate({ id: initialData.id, data: updateData });
     } else {
       create.mutate(data);
@@ -153,6 +153,7 @@ export default function UserAdminPage() {
   const [editItem, setEditItem] = useState<(UserInput & { id: string }) | null>(
     null,
   );
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const { data: sessionData } = authClient.useSession();
   const currentUserId = sessionData?.user?.id;
   const { data: users, isLoading } = api.user.list.useQuery();
@@ -160,6 +161,7 @@ export default function UserAdminPage() {
     onSuccess: () => {
       toast.success("Usuário removido");
       void utils.user.list.invalidate();
+      setDeleteConfirm(null);
     },
   });
   const utils = api.useUtils();
@@ -264,7 +266,7 @@ export default function UserAdminPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => del.mutate(u.id)}
+                        onClick={() => setDeleteConfirm(u.id)}
                       >
                         <Trash2 className="h-4 w-4 text-red-500" />
                       </Button>
@@ -286,6 +288,33 @@ export default function UserAdminPage() {
         )}
           </CardContent>
         </Card>
+
+      <Modal
+        open={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        title="Confirmar exclusão"
+      >
+        <div className="flex flex-col items-center gap-4 py-2 text-center">
+          <AlertTriangle className="h-10 w-10 text-red-400" />
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.
+          </p>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setDeleteConfirm(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              loading={del.isPending}
+              onClick={() => {
+                if (deleteConfirm) del.mutate(deleteConfirm);
+              }}
+            >
+              Excluir
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

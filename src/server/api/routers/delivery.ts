@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import { Prisma } from "@prisma/client";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { uploadToCloudinary } from "~/lib/cloudinary";
+import { uploadToCloudinary, CloudinaryError } from "~/lib/cloudinary";
 
 const deliveryItemSchema = z.object({
   itemType: z.enum(["EPI", "UNIFORM"]),
@@ -17,6 +18,9 @@ const createDeliverySchema = z.object({
   date: z.string().min(1),
   items: z.array(deliveryItemSchema).min(1, "Adicione pelo menos um item"),
   signature: z.string().optional(),
+  deviceType: z.string().optional(),
+  geoLatitude: z.number().optional(),
+  geoLongitude: z.number().optional(),
 });
 
 export const deliveryRouter = createTRPCRouter({
@@ -26,7 +30,7 @@ export const deliveryRouter = createTRPCRouter({
       const isAdmin = ctx.session.user.role === "ADMIN";
       const userLocationId = ctx.session.user.locationId;
 
-      const where: Record<string, unknown> = {
+      const where: Prisma.CollaboratorWhereInput = {
         deliveries: { some: {} },
       };
 
@@ -65,7 +69,7 @@ export const deliveryRouter = createTRPCRouter({
       const page = input?.page ?? 1;
       const pageSize = input?.pageSize ?? 20;
 
-      const where: Record<string, unknown> = {};
+      const where: Prisma.DeliveryWhereInput = {};
 
       if (!isAdmin && userLocationId) {
         where.locationId = userLocationId;
@@ -78,8 +82,8 @@ export const deliveryRouter = createTRPCRouter({
       if (input?.search) {
         where.collaborator = {
           OR: [
-            { name: { contains: input.search } },
-            { registration: { contains: input.search } },
+            { name: { contains: input.search, mode: "insensitive" } },
+            { registration: { contains: input.search, mode: "insensitive" } },
           ],
         };
       }
@@ -113,11 +117,23 @@ export const deliveryRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       return ctx.db.delivery.findUnique({
         where: { id: input },
-        include: {
-          collaborator: { include: { operation: true } },
-          user: true,
-          items: { include: { reason: true } },
-          attachments: true,
+        select: {
+          id: true,
+          date: true,
+          createdAt: true,
+          deviceType: true,
+          ipAddress: true,
+          geoLatitude: true,
+          geoLongitude: true,
+          collaborator: {
+            select: { id: true, name: true, registration: true, role: true, manager: true, operation: { select: { name: true } } },
+          },
+          items: {
+            select: { id: true, itemType: true, itemName: true, size: true, quantity: true, notes: true, reason: { select: { name: true } } },
+          },
+          attachments: {
+            select: { id: true, cloudinaryUrl: true, publicId: true, fileName: true, type: true },
+          },
         },
       });
     }),
@@ -150,13 +166,22 @@ export const deliveryRouter = createTRPCRouter({
         });
       }
 
+      const ipAddress =
+        ctx.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+        ctx.headers.get("x-real-ip") ??
+        ctx.headers.get("cf-connecting-ip") ??
+        null;
+
       const delivery = await ctx.db.delivery.create({
         data: {
           date: new Date(input.date),
           collaboratorId: input.collaboratorId,
           locationId: collaborator.locationId,
           userId: ctx.session.user.id,
-          signature: input.signature,
+          deviceType: input.deviceType ?? null,
+          ipAddress,
+          geoLatitude: input.geoLatitude ?? null,
+          geoLongitude: input.geoLongitude ?? null,
           items: {
             create: input.items.map((item) => ({
               itemType: item.itemType,
@@ -179,13 +204,13 @@ export const deliveryRouter = createTRPCRouter({
         const dateStr = new Date().toISOString().split("T")[0];
         const folder = `safeops/collaborators/${collaborator.registration}`;
 
-        const signatureUpload = await uploadToCloudinary(
-          input.signature,
-          folder,
-          `assinatura-${dateStr}`,
-        );
+        try {
+          const signatureUpload = await uploadToCloudinary(
+            input.signature,
+            folder,
+            `assinatura-${dateStr}`,
+          );
 
-        if (signatureUpload) {
           await ctx.db.attachment.create({
             data: {
               deliveryId: delivery.id,
@@ -195,6 +220,8 @@ export const deliveryRouter = createTRPCRouter({
               type: "SIGNATURE",
             },
           });
+        } catch (error) {
+          console.error("Erro ao fazer upload da assinatura:", error);
         }
       }
 
@@ -205,7 +232,7 @@ export const deliveryRouter = createTRPCRouter({
     .input(
       z.object({
         deliveryId: z.string(),
-        pdfBase64: z.string(),
+        pdfBase64: z.string().max(10 * 1024 * 1024, "Arquivo muito grande. Limite: 10MB"),
         fileName: z.string(),
       }),
     )
@@ -221,13 +248,16 @@ export const deliveryRouter = createTRPCRouter({
 
       const folder = `safeops/collaborators/${delivery.collaborator.registration}`;
 
-      const pdfUpload = await uploadToCloudinary(
-        input.pdfBase64,
-        folder,
-        input.fileName.replace(/\.[^.]+$/, ""),
-      );
+      let uploaded = false;
+      let url: string | undefined;
 
-      if (pdfUpload) {
+      try {
+        const pdfUpload = await uploadToCloudinary(
+          input.pdfBase64,
+          folder,
+          input.fileName.replace(/\.[^.]+$/, ""),
+        );
+
         await ctx.db.attachment.create({
           data: {
             deliveryId: input.deliveryId,
@@ -237,8 +267,13 @@ export const deliveryRouter = createTRPCRouter({
             type: "PDF",
           },
         });
+
+        uploaded = true;
+        url = pdfUpload.url;
+      } catch (error) {
+        console.error("Erro ao fazer upload do PDF:", error);
       }
 
-      return { uploaded: !!pdfUpload, url: pdfUpload?.url };
+      return { uploaded, url };
     }),
 });

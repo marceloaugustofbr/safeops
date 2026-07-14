@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Search, UserPlus, FileSpreadsheet } from "lucide-react";
+import { Plus, Search, UserPlus, FileSpreadsheet, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Select } from "~/components/ui/select";
@@ -75,6 +75,12 @@ function CollaboratorForm({
         error={errors.name?.message}
       />
       <Input
+        id="role"
+        label="Cargo"
+        {...register("role")}
+        error={errors.role?.message}
+      />
+      <Input
         id="manager"
         label="Gestor Direto"
         {...register("manager")}
@@ -111,9 +117,15 @@ export default function CollaboratorsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("choose");
   const [search, setSearch] = useState("");
-  const { data: collaborators, isLoading } = api.collaborator.list.useQuery({
+  const [page, setPage] = useState(1);
+  const { data, isLoading } = api.collaborator.list.useQuery({
     search: search || undefined,
+    page,
+    pageSize: 20,
   });
+
+  const collaborators = data?.collaborators ?? [];
+  const totalPages = data?.totalPages ?? 1;
 
   function openModal() {
     setMode("choose");
@@ -218,54 +230,83 @@ export default function CollaboratorsPage() {
               <Skeleton className="h-8 w-full" />
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Matrícula</TableHead>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Gestor</TableHead>
-                  <TableHead>Operação</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-24">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {collaborators?.map((c) => (
-                  <TableRow key={c.id}>
-                    <TableCell className="font-mono text-sm">
-                      {c.registration}
-                    </TableCell>
-                    <TableCell className="font-medium">{c.name}</TableCell>
-                    <TableCell>{c.manager}</TableCell>
-                    <TableCell>{c.operation.name}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={c.status === "ACTIVE" ? "success" : "danger"}
-                      >
-                        {c.status === "ACTIVE" ? "Ativo" : "Inativo"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="sm" title="Ver histórico">
-                          <Search className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {collaborators?.length === 0 && (
+            <>
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell
-                      colSpan={6}
-                      className="text-center text-gray-500"
-                    >
-                      Nenhum colaborador encontrado
-                    </TableCell>
+                    <TableHead>Matrícula</TableHead>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Cargo</TableHead>
+                    <TableHead>Gestor</TableHead>
+                    <TableHead>Operação</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="w-24">Ações</TableHead>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {collaborators.map((c) => (
+                    <TableRow key={c.id}>
+                      <TableCell className="font-mono text-sm">
+                        {c.registration}
+                      </TableCell>
+                      <TableCell className="font-medium">{c.name}</TableCell>
+                      <TableCell className="text-sm text-gray-500">{c.role ?? "—"}</TableCell>
+                      <TableCell>{c.manager}</TableCell>
+                      <TableCell>{c.operation.name}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={c.status === "ACTIVE" ? "success" : "danger"}
+                        >
+                          {c.status === "ACTIVE" ? "Ativo" : "Inativo"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="sm" title="Ver histórico">
+                            <Search className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {collaborators.length === 0 && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        className="text-center text-gray-500"
+                      >
+                        Nenhum colaborador encontrado
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between border-t border-gray-100 px-6 py-3 dark:border-gray-800">
+                  <p className="text-xs text-gray-400">
+                    Página {data?.page} de {totalPages} · {data?.total} registros
+                  </p>
+                  <div className="flex gap-1.5">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={page <= 1}
+                      onClick={() => setPage((p) => p - 1)}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={page >= totalPages}
+                      onClick={() => setPage((p) => p + 1)}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

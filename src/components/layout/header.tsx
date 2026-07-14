@@ -47,7 +47,7 @@ export function Header({ userName, userRole }: HeaderProps) {
           onClick={toggleTheme}
           title="Alternar tema"
         >
-          {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          {dark ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
         </Button>
 
         <div className="flex items-center gap-2 text-sm">

@@ -1,6 +1,3 @@
-﻿-- CreateSchema
-CREATE SCHEMA IF NOT EXISTS "public";
-
 -- CreateTable
 CREATE TABLE "user" (
     "id" TEXT NOT NULL,
@@ -89,6 +86,7 @@ CREATE TABLE "collaborator" (
     "id" TEXT NOT NULL,
     "registration" TEXT NOT NULL,
     "name" TEXT NOT NULL,
+    "role" TEXT,
     "manager" TEXT NOT NULL,
     "admissionDate" TIMESTAMP(3) NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'ACTIVE',
@@ -142,7 +140,6 @@ CREATE TABLE "reason" (
 CREATE TABLE "delivery" (
     "id" TEXT NOT NULL,
     "date" TIMESTAMP(3) NOT NULL,
-    "signature" TEXT,
     "collaboratorId" TEXT NOT NULL,
     "locationId" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
@@ -190,6 +187,9 @@ CREATE UNIQUE INDEX "session_token_key" ON "session"("token");
 CREATE UNIQUE INDEX "location_name_city_unit_key" ON "location"("name", "city", "unit");
 
 -- CreateIndex
+CREATE INDEX "operation_locationId_idx" ON "operation"("locationId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "operation_name_locationId_key" ON "operation"("name", "locationId");
 
 -- CreateIndex
@@ -205,10 +205,22 @@ CREATE INDEX "collaborator_name_idx" ON "collaborator"("name");
 CREATE INDEX "collaborator_locationId_idx" ON "collaborator"("locationId");
 
 -- CreateIndex
+CREATE INDEX "collaborator_operationId_idx" ON "collaborator"("operationId");
+
+-- CreateIndex
+CREATE INDEX "collaborator_createdById_idx" ON "collaborator"("createdById");
+
+-- CreateIndex
 CREATE INDEX "epi_name_idx" ON "epi"("name");
 
 -- CreateIndex
+CREATE INDEX "epi_deletedAt_idx" ON "epi"("deletedAt");
+
+-- CreateIndex
 CREATE INDEX "uniform_name_idx" ON "uniform"("name");
+
+-- CreateIndex
+CREATE INDEX "uniform_deletedAt_idx" ON "uniform"("deletedAt");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "reason_name_type_key" ON "reason"("name", "type");
@@ -220,7 +232,13 @@ CREATE INDEX "delivery_collaboratorId_idx" ON "delivery"("collaboratorId");
 CREATE INDEX "delivery_locationId_idx" ON "delivery"("locationId");
 
 -- CreateIndex
+CREATE INDEX "delivery_userId_idx" ON "delivery"("userId");
+
+-- CreateIndex
 CREATE INDEX "delivery_date_idx" ON "delivery"("date");
+
+-- CreateIndex
+CREATE INDEX "delivery_createdAt_idx" ON "delivery"("createdAt");
 
 -- CreateIndex
 CREATE INDEX "delivery_item_deliveryId_idx" ON "delivery_item"("deliveryId");
@@ -266,4 +284,3 @@ ALTER TABLE "delivery_item" ADD CONSTRAINT "delivery_item_deliveryId_fkey" FOREI
 
 -- AddForeignKey
 ALTER TABLE "attachment" ADD CONSTRAINT "attachment_deliveryId_fkey" FOREIGN KEY ("deliveryId") REFERENCES "delivery"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-

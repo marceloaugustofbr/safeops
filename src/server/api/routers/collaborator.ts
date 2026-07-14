@@ -1,7 +1,27 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { Prisma } from "@prisma/client";
+import { createTRPCRouter, protectedProcedure, adminProcedure } from "~/server/api/trpc";
 import { collaboratorSchema } from "~/lib/validations/schemas";
+
+const collaboratorListSelect = {
+  id: true,
+  registration: true,
+  name: true,
+  role: true,
+  manager: true,
+  status: true,
+  operation: { select: { name: true } },
+} as const;
+
+const collaboratorSearchSelect = {
+  id: true,
+  name: true,
+  registration: true,
+  role: true,
+  manager: true,
+  operation: { select: { name: true } },
+} as const;
 
 export const collaboratorRouter = createTRPCRouter({
   list: protectedProcedure
@@ -10,14 +30,18 @@ export const collaboratorRouter = createTRPCRouter({
         .object({
           search: z.string().optional(),
           status: z.string().optional(),
+          page: z.number().int().min(1).default(1),
+          pageSize: z.number().int().min(1).max(100).default(20),
         })
         .optional(),
     )
     .query(async ({ ctx, input }) => {
       const isAdmin = ctx.session.user.role === "ADMIN";
       const userLocationId = ctx.session.user.locationId;
+      const page = input?.page ?? 1;
+      const pageSize = input?.pageSize ?? 20;
 
-      const where: Record<string, unknown> = {};
+      const where: Prisma.CollaboratorWhereInput = {};
 
       if (!isAdmin && userLocationId) {
         where.locationId = userLocationId;
@@ -25,8 +49,8 @@ export const collaboratorRouter = createTRPCRouter({
 
       if (input?.search) {
         where.OR = [
-          { name: { contains: input.search } },
-          { registration: { contains: input.search } },
+          { name: { contains: input.search, mode: "insensitive" } },
+          { registration: { contains: input.search, mode: "insensitive" } },
         ];
       }
 
@@ -34,10 +58,56 @@ export const collaboratorRouter = createTRPCRouter({
         where.status = input.status;
       }
 
+      const [collaborators, total] = await ctx.db.$transaction([
+        ctx.db.collaborator.findMany({
+          where,
+          select: collaboratorListSelect,
+          orderBy: { name: "asc" },
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+        }),
+        ctx.db.collaborator.count({ where }),
+      ]);
+
+      return {
+        collaborators,
+        total,
+        page,
+        pageSize,
+        totalPages: Math.ceil(total / pageSize),
+      };
+    }),
+
+  search: protectedProcedure
+    .input(
+      z
+        .object({
+          search: z.string().optional(),
+        })
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      const isAdmin = ctx.session.user.role === "ADMIN";
+      const userLocationId = ctx.session.user.locationId;
+
+      const where: Prisma.CollaboratorWhereInput = {};
+
+      if (!isAdmin && userLocationId) {
+        where.locationId = userLocationId;
+      }
+
+      if (input?.search) {
+        where.OR = [
+          { name: { contains: input.search, mode: "insensitive" } },
+          { registration: { contains: input.search, mode: "insensitive" } },
+        ];
+      }
+
       return ctx.db.collaborator.findMany({
         where,
-        include: { operation: true, location: true, createdBy: true },
+        select: collaboratorSearchSelect,
         orderBy: { name: "asc" },
+        take: 20,
       });
     }),
 
@@ -46,7 +116,18 @@ export const collaboratorRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const collaborator = await ctx.db.collaborator.findUnique({
         where: { registration: input },
-        include: { operation: true, location: true },
+        select: {
+          id: true,
+          registration: true,
+          name: true,
+          role: true,
+          manager: true,
+          admissionDate: true,
+          status: true,
+          locationId: true,
+          operation: { select: { name: true } },
+          location: { select: { name: true, city: true } },
+        },
       });
 
       if (!collaborator) return null;
@@ -96,6 +177,7 @@ export const collaboratorRouter = createTRPCRouter({
         data: {
           registration: input.registration,
           name: input.name,
+          role: input.role,
           manager: input.manager,
           admissionDate: new Date(input.admissionDate),
           operationId: input.operationId,
@@ -105,17 +187,33 @@ export const collaboratorRouter = createTRPCRouter({
           createdById: ctx.session.user.id,
           status: "ACTIVE",
         },
-        include: { operation: true, location: true },
+        select: {
+          id: true,
+          registration: true,
+          name: true,
+          role: true,
+          manager: true,
+          status: true,
+          operation: { select: { name: true } },
+        },
       });
     }),
 
-  update: protectedProcedure
+  update: adminProcedure
     .input(z.object({ id: z.string(), data: collaboratorSchema.partial() }))
     .mutation(async ({ ctx, input }) => {
       return ctx.db.collaborator.update({
         where: { id: input.id },
         data: input.data,
-        include: { operation: true, location: true },
+        select: {
+          id: true,
+          registration: true,
+          name: true,
+          role: true,
+          manager: true,
+          status: true,
+          operation: { select: { name: true } },
+        },
       });
     }),
 
@@ -126,9 +224,14 @@ export const collaboratorRouter = createTRPCRouter({
           z.object({
             registration: z.string().min(1),
             name: z.string().min(1),
+            role: z.string().optional(),
             manager: z.string().min(1),
             operationName: z.string().min(1),
-            admissionDate: z.string().min(1),
+            admissionDate: z
+              .string()
+              .min(1)
+              .regex(/^\d{4}-\d{2}-\d{2}$/, "Formato deve ser YYYY-MM-DD")
+              .refine((val) => !isNaN(Date.parse(val)), "Data inválida"),
           }),
         ),
       }),
@@ -144,7 +247,16 @@ export const collaboratorRouter = createTRPCRouter({
         });
       }
 
-      const locationId = isAdmin ? userLocationId! : userLocationId!;
+      const locationId = isAdmin
+        ? (userLocationId ?? "")
+        : userLocationId!;
+
+      if (!locationId) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Usuário sem localização não pode cadastrar colaboradores",
+        });
+      }
 
       const operations = await ctx.db.operation.findMany({
         where: { locationId },
@@ -152,52 +264,51 @@ export const collaboratorRouter = createTRPCRouter({
       });
       const opMap = new Map(operations.map((o) => [o.name.toLowerCase(), o.id]));
 
-      const created: string[] = [];
+      const existingRegs = await ctx.db.collaborator.findMany({
+        where: { registration: { in: input.collaborators.map((c) => c.registration) } },
+        select: { registration: true },
+      });
+      const existingSet = new Set(existingRegs.map((e) => e.registration));
+
       const skipped: { registration: string; reason: string }[] = [];
       const errors: { registration: string; reason: string }[] = [];
+      const toCreate: { registration: string; name: string; role?: string; manager: string; admissionDate: Date; operationId: string; locationId: string; createdById: string; status: string }[] = [];
 
       for (const c of input.collaborators) {
-        try {
-          const opId = opMap.get(c.operationName.toLowerCase());
-          if (!opId) {
-            errors.push({
-              registration: c.registration,
-              reason: `Operação "${c.operationName}" não encontrada`,
-            });
-            continue;
-          }
-
-          const existing = await ctx.db.collaborator.findUnique({
-            where: { registration: c.registration },
-          });
-
-          if (existing) {
-            skipped.push({
-              registration: c.registration,
-              reason: "Matrícula já cadastrada",
-            });
-            continue;
-          }
-
-          await ctx.db.collaborator.create({
-            data: {
-              registration: c.registration,
-              name: c.name,
-              manager: c.manager,
-              admissionDate: new Date(c.admissionDate),
-              operationId: opId,
-              locationId,
-              createdById: ctx.session.user.id,
-              status: "ACTIVE",
-            },
-          });
-          created.push(c.registration);
-        } catch (e) {
+        const opId = opMap.get(c.operationName.toLowerCase());
+        if (!opId) {
           errors.push({
             registration: c.registration,
-            reason: e instanceof Error ? e.message : "Erro desconhecido",
+            reason: `Operação "${c.operationName}" não encontrada`,
           });
+          continue;
         }
+
+        if (existingSet.has(c.registration)) {
+          skipped.push({
+            registration: c.registration,
+            reason: "Matrícula já cadastrada",
+          });
+          continue;
+        }
+
+        toCreate.push({
+          registration: c.registration,
+          name: c.name,
+          role: c.role,
+          manager: c.manager,
+          admissionDate: new Date(c.admissionDate),
+          operationId: opId,
+          locationId,
+          createdById: ctx.session.user.id,
+          status: "ACTIVE",
+        });
+      }
+
+      const created: string[] = [];
+      if (toCreate.length > 0) {
+        await ctx.db.collaborator.createMany({ data: toCreate });
+        created.push(...toCreate.map((c) => c.registration));
       }
 
       return { created, skipped, errors, total: input.collaborators.length };

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import {
   createTRPCRouter,
   adminProcedure,
@@ -41,6 +42,27 @@ export const locationRouter = createTRPCRouter({
     }),
 
   delete: adminProcedure.input(z.string()).mutation(async ({ ctx, input }) => {
+    const [usersCount, collaboratorsCount, deliveriesCount, operationsCount] =
+      await ctx.db.$transaction([
+        ctx.db.user.count({ where: { locationId: input } }),
+        ctx.db.collaborator.count({ where: { locationId: input } }),
+        ctx.db.delivery.count({ where: { locationId: input } }),
+        ctx.db.operation.count({ where: { locationId: input } }),
+      ]);
+
+    const deps: string[] = [];
+    if (usersCount > 0) deps.push(`${usersCount} usuário(s)`);
+    if (collaboratorsCount > 0) deps.push(`${collaboratorsCount} colaborador(es)`);
+    if (deliveriesCount > 0) deps.push(`${deliveriesCount} entrega(s)`);
+    if (operationsCount > 0) deps.push(`${operationsCount} operação(ões)`);
+
+    if (deps.length > 0) {
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message: `Não é possível excluir: ${deps.join(", ")} vinculado(s) a esta localização`,
+      });
+    }
+
     return ctx.db.location.delete({ where: { id: input } });
   }),
 });

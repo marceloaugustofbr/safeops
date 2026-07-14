@@ -18,6 +18,17 @@ export const auth = betterAuth({
       clientSecret: env.BETTER_AUTH_GITHUB_CLIENT_SECRET,
     },
   } : undefined,
+  rateLimit: {
+    enabled: true,
+    window: 60,
+    max: 20,
+    customRules: {
+      "/sign-in/email": {
+        window: 60,
+        max: 5,
+      },
+    },
+  },
   user: {
     additionalFields: {
       role: {

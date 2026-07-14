@@ -6,13 +6,10 @@ import { auth } from "~/server/better-auth";
 import { db } from "~/server/db";
 
 export const createTRPCContext = async (opts: { headers: Headers }) => {
-  const session = await auth.api.getSession({
-    headers: opts.headers,
-  });
   return {
     db,
-    session,
-    ...opts,
+    headers: opts.headers,
+    session: null as Awaited<ReturnType<typeof auth.api.getSession>> | null,
   };
 };
 
@@ -36,29 +33,26 @@ export const createTRPCRouter = t.router;
 
 const timingMiddleware = t.middleware(async ({ next, path }) => {
   const start = Date.now();
-
-  if (t._config.isDev) {
-    const waitMs = Math.floor(Math.random() * 400) + 100;
-    await new Promise((resolve) => setTimeout(resolve, waitMs));
-  }
-
   const result = await next();
-
   const end = Date.now();
-  console.log(`[TRPC] ${path} took ${end - start}ms to execute`);
+
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[TRPC] ${path} took ${end - start}ms to execute`);
+  }
 
   return result;
 });
 
 export const publicProcedure = t.procedure.use(timingMiddleware);
 
-const enforceUserIsAuthed = t.middleware(({ ctx, next }) => {
-  if (!ctx.session?.user) {
+const enforceUserIsAuthed = t.middleware(async ({ ctx, next }) => {
+  const session = ctx.session ?? await auth.api.getSession({ headers: ctx.headers });
+  if (!session?.user) {
     throw new TRPCError({ code: "UNAUTHORIZED" });
   }
   return next({
     ctx: {
-      session: { ...ctx.session, user: ctx.session.user },
+      session: { ...session, user: session.user },
     },
   });
 });
@@ -67,11 +61,12 @@ export const protectedProcedure = t.procedure
   .use(timingMiddleware)
   .use(enforceUserIsAuthed);
 
-const enforceUserIsAdmin = t.middleware(({ ctx, next }) => {
-  if (!ctx.session?.user) {
+const enforceUserIsAdmin = t.middleware(async ({ ctx, next }) => {
+  const session = ctx.session ?? await auth.api.getSession({ headers: ctx.headers });
+  if (!session?.user) {
     throw new TRPCError({ code: "UNAUTHORIZED" });
   }
-  if (ctx.session.user.role !== "ADMIN") {
+  if (session.user.role !== "ADMIN") {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Admin access required",
@@ -79,7 +74,7 @@ const enforceUserIsAdmin = t.middleware(({ ctx, next }) => {
   }
   return next({
     ctx: {
-      session: { ...ctx.session, user: ctx.session.user },
+      session: { ...session, user: session.user },
     },
   });
 });
